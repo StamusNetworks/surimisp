@@ -30,7 +30,7 @@ parser.add_argument('-v', '--verbose', default=False, action="count", help="Show
 parser.add_argument('-l', '--log', default=None, help='File to log output to (default to stdout)')
 parser.add_argument('-o', '--offset', default=None, help='File to write offset to')
 parser.add_argument('-b', '--batch', default=False, action="store_true", help="Read file and exit at end")
-parser.add_argument('-w', '--workers', default=2, help='Number of alert workers to start')
+parser.add_argument('-w', '--workers', default=1, help='Number of alert workers to start')
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
 
@@ -91,6 +91,8 @@ def check_dns(event):
 def AlertSender():
     while True:
         event = q.get()
+        # Switch event to alert
+        event['event_type'] = 'alert'
         if event['ioc'] == 'hostname':
             print event['http']['hostname']
         q.task_done()
