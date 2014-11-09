@@ -129,7 +129,6 @@ def main_task(args):
         try:
             event = json.loads(line)
         except json.decoder.JSONDecodeError:
-            time.sleep(0.3)
             continue
         if event.has_key('event_type'):
             if event['event_type'] == 'http':
