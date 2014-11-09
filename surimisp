@@ -26,6 +26,7 @@ except:
 
 parser = argparse.ArgumentParser(description='Suricata MISP IOC script')
 parser.add_argument('-f', '--file', default='/var/log/suricata/eve.json', help='JSON file to monitor')
+parser.add_argument('-a', '--alerts', default='/var/log/suricata/ioc.json', help='JSON file to store events to')
 parser.add_argument('-v', '--verbose', default=False, action="count", help="Show verbose output, use multiple times increase verbosity")
 parser.add_argument('-l', '--log', default=None, help='File to log output to (default to stdout)')
 parser.add_argument('-o', '--offset', default=None, help='File to write offset to')
@@ -88,22 +89,24 @@ def check_dns(event):
     except:
         pass
 
-def AlertSender():
+def AlertSender(mode = 'file', alerts = None):
     while True:
         event = q.get()
         # Switch event to alert
         event['event_type'] = 'alert'
-        if event['ioc'] == 'hostname':
-            print event['http']['hostname']
+        if mode == 'file':
+            alerts.write(json.dumps(event) + '\n')
         q.task_done()
 
 def main_task(args):
     global hostname_list
     setup_logging(args)
 
+    alerts = open(args.alerts, 'w+')
+
     q = Queue()
     for i in range(args.workers):
-        t = Thread(target=AlertSender)
+        t = Thread(target=AlertSender, kwargs = {'mode': 'file', 'alerts': alerts })
         t.daemon = True
         t.start()
 
