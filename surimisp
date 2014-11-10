@@ -11,13 +11,16 @@ import time
 import simplejson as json
 from pygtail import Pygtail
 from subprocess import call
+import requests
+import os
 
 from threading import *
 from Queue import *
 
-HOSTNAME_URL = '/attributes/text/download/hostname'
-DOMAIN_URL = '/attributes/text/download/domain'
-URL_URL = '/attributes/text/download/url'
+PROXY_PARAMS = None
+
+MISP_URLS = { 'hostname': 'attributes/text/download/hostname', 'domain': 'attributes/text/download/domain',
+         'url': 'attributes/text/download/url' }
 
 q = Queue()
 
@@ -38,7 +41,8 @@ parser.add_argument('-b', '--batch', default=False, action="store_true", help="R
 parser.add_argument('-w', '--workers', default=1, help='Number of alert workers to start')
 parser.add_argument('-u', '--url', default=None , help='Set option to url where JSON file to monitor, if unset no refresh')
 parser.add_argument('-i', '--interval', default=3600, help='Interval between file update in second')
-parser.add_argument('-b', '--basedir', default='/var/lib/surimisp/', help='Directory where data will stay')
+parser.add_argument('-d', '--basedir', default='/var/lib/surimisp/', help='Directory where data will stay')
+parser.add_argument('-k', '--apikey', default=None, help='API key to use', required=1)
 
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
@@ -54,6 +58,11 @@ elif args.verbose >= 1:
 else:
     loglevel=logging.ERROR
 
+hostname_list = None
+domain_list = None
+url_list = None
+count = { 'hostname': 0, 'url': 0, 'domain': 0 }
+
 def setup_logging(args):
     if args.log:
         logging.basicConfig(filename=args.log,
@@ -62,6 +71,18 @@ def setup_logging(args):
     else:
         logging.basicConfig(level=loglevel)
 
+def fetch_data(baseurl, basedir):
+    session = requests.Session()
+    session.headers.update(
+            {'Authorization': args.apikey }
+            )
+    for url in MISP_URLS:
+        resp = session.get(baseurl + MISP_URLS[url], proxies = PROXY_PARAMS)
+        fpath = os.path.join(basedir, url)
+        fdata = open(fpath, 'w')
+        fdata.write(resp.content)
+        fdata.close()
+
 def load_data(dfile):
     iocfile = open(dfile, 'r')
     entries = []
@@ -69,10 +90,13 @@ def load_data(dfile):
         entries.append(line.rstrip('\n'))
     return set(entries)
 
-hostname_list = None
-domain_list = None
-url_list = None
-count = { 'hostname': 0, 'url': 0, 'domain': 0 }
+def load_all_data(basedir):
+    global hostname_list
+    global domain_list
+    global url_list
+    hostname_list = load_data(os.path.join(basedir, 'hostname'))
+    domain_list = load_data(os.path.join(basedir, 'domain'))
+    url_list = load_data(os.path.join(basedir, 'url'))
  
 def check_http(event):
     global count
@@ -107,11 +131,12 @@ def AlertSender(mode = 'file', alerts = None):
         q.task_done()
 
 def main_task(args):
-    global hostname_list
     setup_logging(args)
 
     if args.url:
         fetch_data(args.url,args.basedir)
+
+    load_all_data(args.basedir)
 
     alerts = open(args.alerts, 'w+')
 
@@ -123,9 +148,7 @@ def main_task(args):
 
     if args.batch:
         start_time = time.clock()
-    hostname_list = load_data('data/misp.hostname.txt')
-    domain_list = load_data('data/misp.domain.txt')
-    url_list = load_data('data/misp.url.txt')
+
     if args.batch:
         end_time = time.clock()
         logging.info("Building sets took %fs" % (end_time - start_time))
