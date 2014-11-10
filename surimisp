@@ -15,6 +15,10 @@ from subprocess import call
 from threading import *
 from Queue import *
 
+HOSTNAME_URL = '/attributes/text/download/hostname'
+DOMAIN_URL = '/attributes/text/download/domain'
+URL_URL = '/attributes/text/download/url'
+
 q = Queue()
 
 have_daemon = True
@@ -32,6 +36,10 @@ parser.add_argument('-l', '--log', default=None, help='File to log output to (de
 parser.add_argument('-o', '--offset', default=None, help='File to write offset to')
 parser.add_argument('-b', '--batch', default=False, action="store_true", help="Read file and exit at end")
 parser.add_argument('-w', '--workers', default=1, help='Number of alert workers to start')
+parser.add_argument('-u', '--url', default=None , help='Set option to url where JSON file to monitor, if unset no refresh')
+parser.add_argument('-i', '--interval', default=3600, help='Interval between file update in second')
+parser.add_argument('-b', '--basedir', default='/var/lib/surimisp/', help='Directory where data will stay')
+
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
 
@@ -101,6 +109,9 @@ def AlertSender(mode = 'file', alerts = None):
 def main_task(args):
     global hostname_list
     setup_logging(args)
+
+    if args.url:
+        fetch_data(args.url,args.basedir)
 
     alerts = open(args.alerts, 'w+')
 
