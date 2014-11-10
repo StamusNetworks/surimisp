@@ -137,10 +137,11 @@ def AlertSender(mode = 'file', alerts = None):
 
 
 def FetchData(interval = 3600, url = None, basedir = None):
-    time.sleep(float(interval))
-    logging.info("Updating IOC lists")
-    fetch_data(url, basedir)
-    load_all_data(basedir)
+    while 1:
+        time.sleep(float(interval))
+        logging.info("Updating IOC lists")
+        fetch_data(url, basedir)
+        load_all_data(basedir)
 
 def main_task(args):
     setup_logging(args)
