@@ -178,16 +178,22 @@ def main_task(args):
 
     if args.batch:
         start_time = time.clock()
-    for line in source:
-        try:
-            event = json.loads(line)
-        except json.decoder.JSONDecodeError:
-            continue
-        if event.has_key('event_type'):
-            if event['event_type'] == 'http':
-                check_http(event)
-            elif event['event_type'] == 'dns':
-                check_dns(event)
+    while 1:
+        for line in source:
+            try:
+                event = json.loads(line)
+            except json.decoder.JSONDecodeError:
+                continue
+            if event.has_key('event_type'):
+                if event['event_type'] == 'http':
+                    check_http(event)
+                elif event['event_type'] == 'dns':
+                    check_dns(event)
+        if args.batch:
+            break
+        else:
+            time.sleep(0.1)
+            source = Pygtail(args.file, offset_file=args.offset)
 
     if args.batch:
         end_time = time.clock()
