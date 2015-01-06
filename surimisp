@@ -23,6 +23,8 @@ PROXY_PARAMS = None
 MISP_URLS = { 'hostname': 'attributes/text/download/hostname', 'domain': 'attributes/text/download/domain',
          'url': 'attributes/text/download/url' }
 
+EUC_WHITELIST = ['google.com', 'microsoft.com']
+
 q = Queue()
 
 have_daemon = True
@@ -92,7 +94,14 @@ def load_data(dfile):
     iocfile = open(dfile, 'r')
     entries = []
     for line in iocfile:
-        entries.append(line.rstrip('\n'))
+        entry = line.rstrip('\n')
+        skip = False
+        for domain in EUC_WHITELIST:
+            if entry.endswith(domain):
+                skip = True
+                break
+        if not skip:
+            entries.append(entry)
     return set(entries)
 
 def load_all_data(basedir):
