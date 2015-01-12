@@ -22,8 +22,6 @@ from Queue import *
 MISP_URLS = { 'hostname': 'attributes/text/download/hostname', 'domain': 'attributes/text/download/domain',
          'url': 'attributes/text/download/url' }
 
-EUC_WHITELIST = ['google.com', 'microsoft.com']
-
 q = Queue()
 
 have_daemon = True
@@ -47,6 +45,7 @@ def get_from_conf(config, key, def_value):
         return def_value
 
 PROXY_PARAMS = get_from_conf(config, 'proxy_params', None)
+WHITELIST = get_from_conf(config, 'whitelist', None)
 
 parser = argparse.ArgumentParser(description='Suricata MISP IOC script')
 parser.add_argument('-f', '--file', default=get_from_conf(config, 'file', '/var/log/suricata/eve.json'), help='JSON file to monitor')
@@ -110,7 +109,7 @@ def load_data(dfile):
     for line in iocfile:
         entry = line.rstrip('\n')
         skip = False
-        for domain in EUC_WHITELIST:
+        for domain in WHITELIST:
             if entry.endswith(domain):
                 skip = True
                 break
