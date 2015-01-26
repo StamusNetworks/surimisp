@@ -15,6 +15,8 @@ import requests
 import os
 import sys
 import yaml
+from elasticsearch import Elasticsearch
+from datetime import datetime, timedelta
 
 from threading import *
 from Queue import *
@@ -56,6 +58,7 @@ parser.add_argument('-o', '--offset', default=get_from_conf(config, 'offset', No
 parser.add_argument('-b', '--batch', default=get_from_conf(config, 'batch', False), action="store_true", help="Read file and exit at end")
 parser.add_argument('-w', '--workers', default=get_from_conf(config, 'workers', 1), type=int, help='Number of alert workers to start')
 parser.add_argument('-u', '--url', default=get_from_conf(config, 'url', None), help='Set option to url where JSON file to monitor, if unset no refresh')
+parser.add_argument('-e', '--elasticsearch', default=get_from_conf(config, 'elasticsearch', None), help='Set elasticsearch server and use it as input, if unset use file')
 parser.add_argument('-i', '--interval', default=get_from_conf(config, 'interval', 3600), type=int, help='Interval between file update in second')
 parser.add_argument('-d', '--basedir', default=get_from_conf(config, 'basedir', '/var/lib/surimisp/'), help='Directory where data will stay')
 parser.add_argument('-k', '--apikey', default=get_from_conf(config, 'apikey', None), help='API key to use')
@@ -195,6 +198,30 @@ def treat_json_file(args):
         logging.info("Matching took %fs" % (end_time - start_time))
         logging.info("Count: " + repr(count))
 
+def treat_elasticsearch(args):
+    es = Elasticsearch([args.elasticsearch])
+    # FIXME real date
+    orig_timestamp_str = '2014-03-08T13:43:22.551756'
+    orig_timestamp = datetime.strptime(orig_timestamp_str,'%Y-%m-%dT%H:%M:%S.%f')
+    end_timestamp = orig_timestamp + timedelta(hours = 1)
+
+    query = '(event_type:http OR event_type:dns) AND timestamp:["%s" TO "%s"}' % (orig_timestamp.strftime('%Y-%m-%dT%H:%M:%S.%f'), end_timestamp.strftime('%Y-%m-%dT%H:%M:%S.%f'))
+    results = es.search(q = query, index='_all', ignore_unavailable = True, scroll = 30, size = 20, search_type = 'scan')
+
+    scroll_id = results['_scroll_id']
+
+    while 1:
+        for entry in results['hits']['hits']:
+            event = entry['_source']
+            if event.has_key('event_type'):
+                if event['event_type'] == 'http':
+                    check_http(event)
+                elif event['event_type'] == 'dns':
+                    check_dns(event)
+        print "Scrolling once more"
+        results = es.scroll(scroll_id = scroll_id, scroll = 10)
+        print results['hits']['hits'][0]
+
 def main_task(args):
     setup_logging(args)
 
@@ -222,9 +249,10 @@ def main_task(args):
         end_time = time.clock()
         logging.info("Building sets took %fs" % (end_time - start_time))
 
-    # init MISP data
-    #fetch_misp_data() 
-    treat_json_file(args)
+    if args.elasticsearch:
+        treat_elasticsearch(args)
+    else:
+        treat_json_file(args)
 
 if have_daemon and args.daemon:
     with daemon.DaemonContext():
