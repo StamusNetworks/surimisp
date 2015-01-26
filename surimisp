@@ -165,6 +165,36 @@ def FetchData(interval = 3600, url = None, basedir = None):
         fetch_data(url, basedir)
         load_all_data(basedir)
 
+def treat_json_file(args):
+    if args.batch:
+        source = open(args.file, 'r')
+    else:
+        source = Pygtail(args.file, offset_file=args.offset)
+
+    if args.batch:
+        start_time = time.clock()
+    while 1:
+        for line in source:
+            try:
+                event = json.loads(line)
+            except json.decoder.JSONDecodeError:
+                continue
+            if event.has_key('event_type'):
+                if event['event_type'] == 'http':
+                    check_http(event)
+                elif event['event_type'] == 'dns':
+                    check_dns(event)
+        if args.batch:
+            break
+        else:
+            time.sleep(0.1)
+            source = Pygtail(args.file, offset_file=args.offset)
+
+    if args.batch:
+        end_time = time.clock()
+        logging.info("Matching took %fs" % (end_time - start_time))
+        logging.info("Count: " + repr(count))
+
 def main_task(args):
     setup_logging(args)
 
@@ -194,34 +224,7 @@ def main_task(args):
 
     # init MISP data
     #fetch_misp_data() 
-    if args.batch:
-        source = open(args.file, 'r')
-    else:
-        source = Pygtail(args.file, offset_file=args.offset)
-
-    if args.batch:
-        start_time = time.clock()
-    while 1:
-        for line in source:
-            try:
-                event = json.loads(line)
-            except json.decoder.JSONDecodeError:
-                continue
-            if event.has_key('event_type'):
-                if event['event_type'] == 'http':
-                    check_http(event)
-                elif event['event_type'] == 'dns':
-                    check_dns(event)
-        if args.batch:
-            break
-        else:
-            time.sleep(0.1)
-            source = Pygtail(args.file, offset_file=args.offset)
-
-    if args.batch:
-        end_time = time.clock()
-        logging.info("Matching took %fs" % (end_time - start_time))
-        logging.info("Count: " + repr(count))
+    treat_json_file(args)
 
 if have_daemon and args.daemon:
     with daemon.DaemonContext():
