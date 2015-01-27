@@ -64,6 +64,7 @@ parser.add_argument('-r', '--redis', default=get_from_conf(config, 'redis', None
 parser.add_argument('-i', '--interval', default=get_from_conf(config, 'interval', 3600), type=int, help='Interval between file update in second')
 parser.add_argument('-d', '--basedir', default=get_from_conf(config, 'basedir', '/var/lib/surimisp/'), help='Directory where data will stay')
 parser.add_argument('-k', '--apikey', default=get_from_conf(config, 'apikey', None), help='API key to use')
+parser.add_argument('-S', '--strict', default=get_from_conf(config, 'strict', True), help='Be strict on TLS checks')
 
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
@@ -102,7 +103,7 @@ def fetch_data(baseurl, basedir):
             {'Authorization': args.apikey }
             )
     for url in MISP_URLS:
-        resp = session.get(baseurl + MISP_URLS[url], proxies = PROXY_PARAMS)
+        resp = session.get(baseurl + MISP_URLS[url], proxies = PROXY_PARAMS, verify = args.strict)
         fpath = os.path.join(basedir, url)
         fdata = open(fpath, 'w')
         fdata.write(resp.content)
