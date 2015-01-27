@@ -2,3 +2,4 @@ pygtail==0.5.0
 simplejson==3.6.5
 redis==2.10.1
 elasticsearch==1.2.0
+argparse==1.2.1
