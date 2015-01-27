@@ -16,6 +16,7 @@ import os
 import sys
 import yaml
 from elasticsearch import Elasticsearch
+import redis
 from datetime import datetime, timedelta
 
 from threading import *
@@ -59,6 +60,7 @@ parser.add_argument('-b', '--batch', default=get_from_conf(config, 'batch', Fals
 parser.add_argument('-w', '--workers', default=get_from_conf(config, 'workers', 1), type=int, help='Number of alert workers to start')
 parser.add_argument('-u', '--url', default=get_from_conf(config, 'url', None), help='Set option to url where JSON file to monitor, if unset no refresh')
 parser.add_argument('-e', '--elasticsearch', default=get_from_conf(config, 'elasticsearch', None), help='Set elasticsearch server and use it as input, if unset use file')
+parser.add_argument('-r', '--redis', default=get_from_conf(config, 'redis', None), help='Set redis server and use it as input, if unset use file')
 parser.add_argument('-i', '--interval', default=get_from_conf(config, 'interval', 3600), type=int, help='Interval between file update in second')
 parser.add_argument('-d', '--basedir', default=get_from_conf(config, 'basedir', '/var/lib/surimisp/'), help='Directory where data will stay')
 parser.add_argument('-k', '--apikey', default=get_from_conf(config, 'apikey', None), help='API key to use')
@@ -158,6 +160,7 @@ def AlertSender(mode = 'file', alerts = None):
         event['event_type'] = 'alert'
         if mode == 'file':
             alerts.write(json.dumps(event) + '\n')
+            alerts.flush()
         q.task_done()
 
 
@@ -197,6 +200,24 @@ def treat_json_file(args):
         end_time = time.clock()
         logging.info("Matching took %fs" % (end_time - start_time))
         logging.info("Count: " + repr(count))
+
+def treat_redis(args):
+    r = redis.StrictRedis(host=args.redis)
+    p = r.pubsub()
+    # FIXME hardcoded ....
+    p.psubscribe('logstash-http', 'logstash-dns')
+    while 1:
+        msg = p.get_message()
+        if msg:
+            if msg['type'] == 'pmessage':
+                event = json.loads(msg['data'])
+                if event.has_key('event_type'):
+                    if event['event_type'] == 'http':
+                        check_http(event)
+                    elif event['event_type'] == 'dns':
+                        check_dns(event)
+        else:
+            time.sleep(0.1)
 
 def treat_elasticsearch(args):
     es = Elasticsearch([args.elasticsearch])
@@ -249,7 +270,9 @@ def main_task(args):
         end_time = time.clock()
         logging.info("Building sets took %fs" % (end_time - start_time))
 
-    if args.elasticsearch:
+    if args.redis:
+        treat_redis(args)
+    elif args.elasticsearch:
         treat_elasticsearch(args)
     else:
         treat_json_file(args)
