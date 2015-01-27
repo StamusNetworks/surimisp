@@ -48,7 +48,7 @@ def get_from_conf(config, key, def_value):
         return def_value
 
 PROXY_PARAMS = get_from_conf(config, 'proxy_params', None)
-WHITELIST = get_from_conf(config, 'whitelist', None)
+WHITELIST = get_from_conf(config, 'whitelist', [])
 
 parser = argparse.ArgumentParser(description='Suricata MISP IOC script')
 parser.add_argument('-f', '--file', default=get_from_conf(config, 'file', '/var/log/suricata/eve.json'), help='JSON file to monitor')
