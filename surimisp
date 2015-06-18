@@ -202,7 +202,7 @@ def treat_json_file(args):
         logging.info("Matching took %fs" % (end_time - start_time))
         logging.info("Count: " + repr(count))
 
-def treat_redis(args):
+def treat_redis_publisher(args):
     r = redis.StrictRedis(host=args.redis)
     p = r.pubsub()
     # FIXME hardcoded ....
@@ -217,6 +217,22 @@ def treat_redis(args):
                         check_http(event)
                     elif event['event_type'] == 'dns':
                         check_dns(event)
+        else:
+            time.sleep(0.1)
+
+
+def treat_redis(args):
+    r = redis.StrictRedis(host=args.redis)
+    while 1:
+        # FIXME hardcoded ....
+        msg = r.rpoplpush('logstash-events', 'logstash')
+        if msg:
+            event = json.loads(msg)
+            if event.has_key('event_type'):
+                if event['event_type'] == 'http':
+                    check_http(event)
+                elif event['event_type'] == 'dns':
+                    check_dns(event)
         else:
             time.sleep(0.1)
 
