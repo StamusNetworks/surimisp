@@ -52,7 +52,7 @@ WHITELIST = get_from_conf(config, 'whitelist', [])
 
 parser = argparse.ArgumentParser(description='Suricata MISP IOC script')
 parser.add_argument('-f', '--file', default=get_from_conf(config, 'file', '/var/log/suricata/eve.json'), help='JSON file to monitor')
-parser.add_argument('-a', '--alerts', default=get_from_conf(config, 'file', '/var/log/suricata/ioc.json'), help='JSON file to store events to')
+parser.add_argument('-a', '--alerts', default=get_from_conf(config, 'alerts', '/var/log/suricata/ioc.json'), help='JSON file to store events to')
 parser.add_argument('-v', '--verbose', default=get_from_conf(config, 'verbose', False), action="count", help="Show verbose output, use multiple times increase verbosity")
 parser.add_argument('-l', '--log', default=get_from_conf(config, 'log', None), help='File to log output to (default to stdout)')
 parser.add_argument('-o', '--offset', default=get_from_conf(config, 'offset', None), help='File to write offset to')
@@ -64,7 +64,7 @@ parser.add_argument('-r', '--redis', default=get_from_conf(config, 'redis', None
 parser.add_argument('-i', '--interval', default=get_from_conf(config, 'interval', 3600), type=int, help='Interval between file update in second')
 parser.add_argument('-d', '--basedir', default=get_from_conf(config, 'basedir', '/var/lib/surimisp/'), help='Directory where data will stay')
 parser.add_argument('-k', '--apikey', default=get_from_conf(config, 'apikey', None), help='API key to use')
-parser.add_argument('-S', '--strict', default=get_from_conf(config, 'strict', True), help='Be strict on TLS checks')
+parser.add_argument('-S', '--strict', default=get_from_conf(config, 'strict', False), action="store_true", help='Be strict on TLS checks')
 
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
