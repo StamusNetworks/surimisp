@@ -66,6 +66,11 @@ parser.add_argument('-d', '--basedir', default=get_from_conf(config, 'basedir', 
 parser.add_argument('-k', '--apikey', default=get_from_conf(config, 'apikey', None), help='API key to use')
 parser.add_argument('-S', '--strict', default=get_from_conf(config, 'strict', False), action="store_true", help='Be strict on TLS checks')
 
+ALERT_SUBOBJECT = { "hostname": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on HTTP hostname", "signature_id": 1 },
+"domain": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on DNS request name", "signature_id": 2 },
+"url": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on HTTP url", "signature_id": 3 },
+"ip": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on IP address", "signature_id": 4 } }
+
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
 
@@ -136,10 +141,12 @@ def check_http(event):
     try:
         if event['http']['hostname'] in hostname_list:
            event['ioc'] = 'hostname'
+           event['alert'] = ALERT_SUBOBJECT['hostname']
            q.put(event)
            count['hostname'] = count['hostname'] + 1
         if event['http']['url'] in url_list:
            event['ioc'] = 'url'
+           event['alert'] = ALERT_SUBOBJECT['url']
            q.put(event)
            count['url'] = count['url'] + 1
     except:
@@ -149,6 +156,7 @@ def check_dns(event):
     try:
         if event['dns']['rrname'] in domain_list:
            event['ioc'] = 'domain'
+           event['alert'] = ALERT_SUBOBJECT['domain']
            q.put(event)
            count['domain'] = count['domain'] + 1
     except:
