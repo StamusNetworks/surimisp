@@ -54,7 +54,7 @@ PROXY_PARAMS = get_from_conf(config, 'proxy_params', None)
 WHITELIST = get_from_conf(config, 'whitelist', [])
 
 parser = argparse.ArgumentParser(description='Suricata MISP IOC script')
-parser.add_argument('-f', '--files', default=get_from_conf(config, 'file', '/var/log/suricata/eve.json'), help='JSON files to monitor', nargs='+')
+parser.add_argument('-f', '--files', default=get_from_conf(config, 'files', '/var/log/suricata/eve.json'), help='JSON files to monitor', nargs='+')
 parser.add_argument('-a', '--alerts', default=get_from_conf(config, 'alerts', '/var/log/suricata/ioc.json'), help='JSON file to store events to')
 parser.add_argument('-v', '--verbose', default=get_from_conf(config, 'verbose', False), action="count", help="Show verbose output, use multiple times increase verbosity")
 parser.add_argument('-l', '--log', default=get_from_conf(config, 'log', None), help='File to log output to (default to stdout)')
@@ -138,41 +138,48 @@ def load_all_data(basedir):
     domain_list = load_data(os.path.join(basedir, 'domain'))
     url_list = load_data(os.path.join(basedir, 'url'))
  
-def check_http(event):
+def check_http(event, queue = None):
     global count
+    if queue == None:
+        queue = q
     try:
         if event['http']['hostname'] in hostname_list:
            event['ioc'] = 'hostname'
            event['alert'] = ALERT_SUBOBJECT['hostname']
-           q.put(event)
+           queue.put(event)
            count['hostname'] = count['hostname'] + 1
         if event['http']['url'] in url_list:
            event['ioc'] = 'url'
            event['alert'] = ALERT_SUBOBJECT['url']
-           q.put(event)
+           queue.put(event)
            count['url'] = count['url'] + 1
     except:
         pass
 
-def check_dns(event):
+def check_dns(event, queue = None):
+    if queue == None:
+        queue = q
     try:
         if event['dns']['rrname'] in domain_list:
            event['ioc'] = 'domain'
            event['alert'] = ALERT_SUBOBJECT['domain']
-           q.put(event)
+           queue.put(event)
            count['domain'] = count['domain'] + 1
     except:
         pass
 
-def AlertSender(mode = 'file', alerts = None):
+def AlertSender(mode = 'file', alerts = None, queue = None):
+    global must_exit
     while True:
-        event = q.get()
+        event = queue.get()
         # Switch event to alert
         event['event_type'] = 'alert'
         if mode == 'file':
             alerts.write(json.dumps(event) + '\n')
             alerts.flush()
-        q.task_done()
+        queue.task_done()
+        if must_exit:
+            return
 
 
 def FetchData(interval = 3600, url = None, basedir = None):
@@ -182,7 +189,7 @@ def FetchData(interval = 3600, url = None, basedir = None):
         fetch_data(url, basedir)
         load_all_data(basedir)
 
-def parse_source_lines(source):
+def parse_source_lines(source, queue = None):
    for line in source:
        try:
            event = json.loads(line)
@@ -190,24 +197,24 @@ def parse_source_lines(source):
            continue
        if event.has_key('event_type'):
            if event['event_type'] == 'http':
-               check_http(event)
+               check_http(event, queue = queue)
            elif event['event_type'] == 'dns':
-               check_dns(event)
+               check_dns(event, queue = queue)
 
-def TreatJsonFile(args = None, source = None):
+def TreatJsonFile(args = None, source = None, queue = None):
     global must_exit
     if args.batch:
         for logfile in args.files:
             source = open(logfile, 'r')
             start_time = time.clock()
-            parse_source_lines(source)
+            parse_source_lines(source, queue = queue)
             end_time = time.clock()
             logging.info("Matching on '%s' took %fs" % (logfile, end_time - start_time))
             logging.info("Count: " + repr(count))
     else:
         while 1:
             logfile = Pygtail(source)
-            parse_source_lines(logfile)
+            parse_source_lines(logfile, queue = queue)
             if must_exit:
                 return
             time.sleep(0.1)
@@ -288,12 +295,41 @@ def main_task(args):
 
     load_all_data(args.basedir)
 
+    signal.signal(signal.SIGTERM, sigterm_handler)
+    signal.signal(signal.SIGINT, sigterm_handler)
+
+    if config.has_key('instances'):
+        for instance in config['instances'].keys():
+            inst_config = config['instances'][instance]
+            alerts = open(inst_config['alerts'], 'a+')
+            queue = Queue()
+            for i in range(args.workers):
+                t = Thread(target=AlertSender, kwargs = {'mode': 'file', 'alerts': alerts, 'queue': queue })
+                t.daemon = True
+                t.start()
+            for logfile in inst_config['files']:
+                logging.info("Add reader for file '%s' with output '%s'" % ( logfile, inst_config['alerts'] ))
+                t = Thread(target=TreatJsonFile, kwargs = {'source': logfile, 'args': args, 'queue': queue})
+                t.daemon = True
+                t.start()
+        while 1:
+            print "in instances loop"
+            if must_exit:
+                break
+            try:
+                time.sleep(0.1)
+            except KeyboardInterrupt:
+                must_exit = True
+                return
+        return
+
     alerts = open(args.alerts, 'a+')
 
-    for i in range(args.workers):
-        t = Thread(target=AlertSender, kwargs = {'mode': 'file', 'alerts': alerts })
-        t.daemon = True
-        t.start()
+    if args.batch:
+        for i in range(args.workers):
+            t = Thread(target=AlertSender, kwargs = {'mode': 'file', 'alerts': alerts, 'queue': q })
+            t.daemon = True
+            t.start()
 
     if args.batch:
         start_time = time.clock()
@@ -314,8 +350,6 @@ def main_task(args):
                 t = Thread(target=TreatJsonFile, kwargs = {'source': logfile, 'args': args})
                 t.daemon = True
                 t.start()
-            signal.signal(signal.SIGTERM, sigterm_handler)
-            signal.signal(signal.SIGINT, sigterm_handler)
             while 1:
                 if must_exit:
                     break
@@ -323,7 +357,7 @@ def main_task(args):
                     time.sleep(0.1)
                 except KeyboardInterrupt:
                     must_exit = True
-                    break
+                    return
 
 if have_daemon and args.daemon:
     with daemon.DaemonContext():
