@@ -279,7 +279,7 @@ def treat_elasticsearch(args):
 
 def sigterm_handler(_signo, _stack_frame):
     global must_exit
-    print "Exiting program due to signal"
+    logging.info("Exiting program due to signal")
     must_exit = True
 
 def main_task(args):
@@ -313,7 +313,6 @@ def main_task(args):
                 t.daemon = True
                 t.start()
         while 1:
-            print "in instances loop"
             if must_exit:
                 break
             try:
@@ -325,11 +324,10 @@ def main_task(args):
 
     alerts = open(args.alerts, 'a+')
 
-    if args.batch:
-        for i in range(args.workers):
-            t = Thread(target=AlertSender, kwargs = {'mode': 'file', 'alerts': alerts, 'queue': q })
-            t.daemon = True
-            t.start()
+    for i in range(args.workers):
+        t = Thread(target=AlertSender, kwargs = {'mode': 'file', 'alerts': alerts, 'queue': q })
+        t.daemon = True
+        t.start()
 
     if args.batch:
         start_time = time.clock()
