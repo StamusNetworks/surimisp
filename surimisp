@@ -168,6 +168,18 @@ def check_dns(event, queue = None):
     except:
         pass
 
+def check_tls(event, queue = None):
+    if queue == None:
+        queue = q
+    try:
+        if event['tls']['sni'] in hostname_list:
+           event['ioc'] = 'hostname'
+           event['alert'] = ALERT_SUBOBJECT['hostname']
+           queue.put(event)
+           count['hostname'] = count['hostname'] + 1
+    except:
+        pass
+
 def AlertSender(mode = 'file', alerts = None, queue = None):
     global must_exit
     while True:
@@ -200,6 +212,8 @@ def parse_source_lines(source, queue = None):
                check_http(event, queue = queue)
            elif event['event_type'] == 'dns':
                check_dns(event, queue = queue)
+           elif event['event_type'] == 'tls':
+               check_tls(event, queue = queue)
 
 def TreatJsonFile(args = None, source = None, queue = None):
     global must_exit
