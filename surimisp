@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 import signal
 
 from threading import *
-from Queue import *
+from queue import *
 
 MISP_URLS = { 'hostname': 'attributes/text/download/hostname', 'domain': 'attributes/text/download/domain',
          'url': 'attributes/text/download/url' }
