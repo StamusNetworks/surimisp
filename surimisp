@@ -287,9 +287,9 @@ def treat_elasticsearch(args):
                     check_http(event)
                 elif event['event_type'] == 'dns':
                     check_dns(event)
-        print "Scrolling once more"
+        print("Scrolling once more")
         results = es.scroll(scroll_id = scroll_id, scroll = 10)
-        print results['hits']['hits'][0]
+        print(results['hits']['hits'][0])
 
 def sigterm_handler(_signo, _stack_frame):
     global must_exit
