@@ -45,7 +45,7 @@ except:
     pass
 
 def get_from_conf(config, key, def_value):
-    if config.has_key(key):
+    if key in config:
         return config[key]
     else:
         return def_value
@@ -207,7 +207,7 @@ def parse_source_lines(source, queue = None):
            event = json.loads(line)
        except json.decoder.JSONDecodeError:
            continue
-       if event.has_key('event_type'):
+       if 'event_type' in event:
            if event['event_type'] == 'http':
                check_http(event, queue = queue)
            elif event['event_type'] == 'dns':
@@ -243,7 +243,7 @@ def treat_redis_publisher(args):
         if msg:
             if msg['type'] == 'pmessage':
                 event = json.loads(msg['data'])
-                if event.has_key('event_type'):
+                if 'event_type' in event:
                     if event['event_type'] == 'http':
                         check_http(event)
                     elif event['event_type'] == 'dns':
@@ -259,7 +259,7 @@ def treat_redis(args):
         msg = r.rpoplpush('logstash-events', 'logstash')
         if msg:
             event = json.loads(msg)
-            if event.has_key('event_type'):
+            if 'event_type' in event:
                 if event['event_type'] == 'http':
                     check_http(event)
                 elif event['event_type'] == 'dns':
@@ -282,14 +282,14 @@ def treat_elasticsearch(args):
     while 1:
         for entry in results['hits']['hits']:
             event = entry['_source']
-            if event.has_key('event_type'):
+            if 'event_type' in event:
                 if event['event_type'] == 'http':
                     check_http(event)
                 elif event['event_type'] == 'dns':
                     check_dns(event)
         print("Scrolling once more")
         results = es.scroll(scroll_id = scroll_id, scroll = 10)
-        print(results['hits']['hits'][0])
+        print((results['hits']['hits'][0]))
 
 def sigterm_handler(_signo, _stack_frame):
     global must_exit
@@ -312,8 +312,8 @@ def main_task(args):
     signal.signal(signal.SIGTERM, sigterm_handler)
     signal.signal(signal.SIGINT, sigterm_handler)
 
-    if config.has_key('instances'):
-        for instance in config['instances'].keys():
+    if 'instances' in config:
+        for instance in list(config['instances'].keys()):
             inst_config = config['instances'][instance]
             alerts = open(inst_config['alerts'], 'a+')
             queue = Queue()
