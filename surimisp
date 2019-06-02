@@ -274,7 +274,7 @@ def treat_elasticsearch(args):
     orig_timestamp = datetime.strptime(orig_timestamp_str,'%Y-%m-%dT%H:%M:%S.%f')
     end_timestamp = orig_timestamp + timedelta(hours = 1)
 
-    query = '(event_type:http OR event_type:dns) AND timestamp:["%s" TO "%s"}' % (orig_timestamp.strftime('%Y-%m-%dT%H:%M:%S.%f'), end_timestamp.strftime('%Y-%m-%dT%H:%M:%S.%f'))
+    query = '(event_type:http OR event_type:dns OR event_type:tls) AND timestamp:["%s" TO "%s"}' % (orig_timestamp.strftime('%Y-%m-%dT%H:%M:%S.%f'), end_timestamp.strftime('%Y-%m-%dT%H:%M:%S.%f'))
     results = es.search(q = query, index='_all', ignore_unavailable = True, scroll = 30, size = 20, search_type = 'scan')
 
     scroll_id = results['_scroll_id']
