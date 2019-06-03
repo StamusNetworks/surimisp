@@ -37,12 +37,16 @@ except:
     logging.warning("No daemon support available, install python-daemon if feature is needed")
     have_daemon = False
 
+conf_parser = argparse.ArgumentParser(add_help = False)
+conf_parser.add_argument("-c", "--conf_file",
+                         metavar="FILE")
+args, remaining_argv = conf_parser.parse_known_args()
+
+
 config = {}
-try:
-    with open('/etc/surimisp/surimisp.conf', 'r') as conffile:
+if args.conf_file:
+    with open(args.conf_file, 'r') as conffile:
         config = yaml.load(conffile)
-except:
-    pass
 
 def get_from_conf(config, key, def_value):
     if key in config:
@@ -54,6 +58,7 @@ PROXY_PARAMS = get_from_conf(config, 'proxy_params', None)
 WHITELIST = get_from_conf(config, 'whitelist', [])
 
 parser = argparse.ArgumentParser(description='Suricata MISP IOC script')
+parser.add_argument("-c", "--conf_file", help='Set config file to use')
 parser.add_argument('-f', '--files', default=get_from_conf(config, 'files', '/var/log/suricata/eve.json'), help='JSON files to monitor', nargs='+')
 parser.add_argument('-a', '--alerts', default=get_from_conf(config, 'alerts', '/var/log/suricata/ioc.json'), help='JSON file to store events to')
 parser.add_argument('-v', '--verbose', default=get_from_conf(config, 'verbose', False), action="count", help="Show verbose output, use multiple times increase verbosity")
@@ -76,7 +81,7 @@ ALERT_SUBOBJECT = { "hostname": { "action": "allowed", "category": "Misc Attack"
 if have_daemon:
     parser.add_argument('-D', '--daemon', default=False, action="store_true", help="Run as unix daemon")
 
-args = parser.parse_args()
+args = parser.parse_args(remaining_argv)
 
 if args.url and not args.apikey:
     print("URL specified and no API key aborting.")
