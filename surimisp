@@ -68,7 +68,7 @@ parser.add_argument('-d', '--basedir', default=get_from_conf(config, 'basedir', 
 parser.add_argument('-k', '--apikey', default=get_from_conf(config, 'apikey', None), help='API key to use')
 parser.add_argument('-S', '--strict', default=get_from_conf(config, 'strict', False), action="store_true", help='Be strict on TLS checks')
 
-ALERT_SUBOBJECT = { "hostname": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on HTTP hostname", "signature_id": 1 },
+ALERT_SUBOBJECT = { "hostname": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on HTTP/TLS hostname", "signature_id": 1 },
 "domain": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on DNS request name", "signature_id": 2 },
 "url": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on HTTP url", "signature_id": 3 },
 "ip": { "action": "allowed", "category": "Misc Attack", "gid": 1, "rev": 4, "severity": 3, "signature": "IOC alert on IP address", "signature_id": 4 } }
@@ -113,7 +113,7 @@ def fetch_data(baseurl, basedir):
         resp = session.get(baseurl + MISP_URLS[url], proxies = PROXY_PARAMS, verify = args.strict)
         fpath = os.path.join(basedir, url)
         fdata = open(fpath, 'w')
-        fdata.write(resp.content)
+        fdata.write(resp.content.decode('utf-8'))
         fdata.close()
 
 def load_data(dfile):
